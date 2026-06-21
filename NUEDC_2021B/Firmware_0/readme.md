@@ -1101,6 +1101,7 @@ PM_STATE_RUN → PM_STATE_UI_OFF → PM_STATE_SLEEP_PREPARE
 | 游戏（贪吃蛇、小恐龙） | 100% |
 | I2C 扫描器 | 100% |
 | 烧屏测试 | 100% |
+| 外部依赖清理（移除 `algorithm.h` / `basic_type.h` 引用） | 100% |
 
 ### 🚧 待完善
 
@@ -1120,15 +1121,13 @@ PM_STATE_RUN → PM_STATE_UI_OFF → PM_STATE_SLEEP_PREPARE
 | **自适应母线电压** | 0% | 根据输入电压和负载动态调整 $U_{bus\_ref}$ |
 | **自适应死区** | 0% | 根据负载电流动态调整 HRTIM 死区时间 |
 | **ADC 参数菜单** | 0% | 相关代码被注释 |
-| **外部依赖清理** | — | 多个文件仍 `#include "algorithm.h"` 引用外部项目 `NUEDC-2025-A` |
+| ~~外部依赖清理~~ | ✅ 已完成 | 已移除所有 `#include "algorithm.h"` / `basic_type.h` 外部引用 |
 | **第二块母板硬件** | 0% | 第二版本母板打样与调试，解决 PCB 布局和信号完整性问题 |
 | **隔离下载器稳定性** | 0% | 自制隔离 DAPLINK 在高压调试场景下的通信稳定性需验证与改进 |
 
 ### 🔴 已知问题
 
-1. **外部依赖残留** — `algorithm.h` / `basic_type.h` 被 11 个文件引用，但不存在于本项目
-2. **闭环未使能** — `MainLoop()` 中控制环路和保护调用均被注释
-3. **DAC 调试输出残留** — `MainLoop()` 中有 `LL_DAC_ConvertData*` 调用用于示波器观察
+1. **闭环未使能** — `MainLoop()` 中控制环路和保护调用均被注释
 
 ---
 
