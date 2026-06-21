@@ -51,8 +51,7 @@ void DashBoard(ui_t *ui){
         value = (int16_t)UI_Animation(68, (float)value, &ui->animation.optionbarPos_ani);
         //标题
         Disp_SetFont(font_menu_main_h12w6);
-        if(LoopMode) Disp_DrawStr(69-value, 10, "-Feedbacker-");
-        else Disp_DrawStr(69-value, 10, "-Inverter-");
+        Disp_DrawStr(69-value, 10, " ACDC-2021B ");
             
         
         //VL Set
@@ -92,8 +91,7 @@ void DashBoard(ui_t *ui){
         Disp_DrawRBox(0, value2, 67, 10, 0);
         //启动框
         if(g_conv_state == CONV_RUN){
-            if(LoopMode) Disp_DrawRBox(0, 0, 73, 11, 0);//W=6*12+1=73
-            else Disp_DrawRBox(0, 0, 61, 11, 0);
+            Disp_DrawRBox(0, 0, 73, 11, 0);//W=6*12+1=73
         }
         //横线
         color = ui->bgColor ? 0 : 1;
