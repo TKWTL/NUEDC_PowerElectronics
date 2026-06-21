@@ -208,6 +208,7 @@ int main(void)
   MX_QUADSPI1_Init();
   MX_UART4_Init();
   MX_ADC5_Init();
+  MX_ADC3_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */

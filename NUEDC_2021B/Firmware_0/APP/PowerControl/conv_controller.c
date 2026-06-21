@@ -46,11 +46,37 @@ inline void MainLoop(void){
         //Protection();//保护函数
         
         sin0 = CORDIC_Read();
+        float sin120 = CORDIC_Get_sin120();
         sin240 = CORDIC_Get_sin240();
         
-        LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_1, sin0* 2000+ 2048U);
-        LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_2, CORDIC_Get_sin120()* 2000+ 2048U);
-        LL_DAC_ConvertData12RightAligned(DAC2, LL_DAC_CHANNEL_1, sin240* 2000+ 2048U);
+        //开环SVPWM输出（通过整流器桥臂）
+        {
+            //软启动
+            if(soft_k < 1.0f) soft_k += SOFTSTART_SLOPE;
+            if(thph_offset < 2.0f * MODULATION_MIDPOINT) thph_offset += MODULATION_SLOPE;
+            
+            float U_ref = 0.5f; //调制度（可后续改为VO_Set归一化）
+            U_ref *= soft_k;
+            
+            float Va = U_ref * sin0;
+            float Vb = U_ref * sin120;
+            float Vc = U_ref * sin240;
+            
+            //SVPWM零序注入（与thph_loop中CalcInvCommonMode一致）
+            float vmax = fmaxf(Va, fmaxf(Vb, Vc));
+            float vmin = fminf(Va, fminf(Vb, Vc));
+            float voffset = thph_offset * 0.5f - (vmax + vmin) * 0.25f;
+            
+            Va = 0.5f * Va + voffset;
+            Vb = 0.5f * Vb + voffset;
+            Vc = 0.5f * Vc + voffset;
+            
+            SetDuty_Rec(Va, Vb, Vc);
+        }
+        
+        //LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_1, sin0* 2000+ 2048U);//调试用：观察sin0波形
+        //LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_2, CORDIC_Get_sin120()* 2000+ 2048U);
+        //LL_DAC_ConvertData12RightAligned(DAC2, LL_DAC_CHANNEL_1, sin240* 2000+ 2048U);
         //thph_loop(VO_Set, sin0, sin240);
         //if(LoopMode) tri_PFC_Loop(IO_Set, sin0, CORDIC_Get_sin120(), sin240);
         PWM_Start_Inv();

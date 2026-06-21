@@ -121,10 +121,11 @@ flowchart LR
 flowchart LR
     subgraph 采样点
         direction TB
-        A1["A-C 相电流<br>Ia, Ib, Ic"] --> ADC1
-        A2["A-B, B-C 线电压<br>输入电压前馈"] --> ADC2
-        A3["零序电压 Uz<br>母线电压 Ubus"] --> ADC3
-        A4["BUCK 输出电压<br>BUCK 输出电流"] --> ADC4
+        A1["IOUT BUCK电流<br>PC2-ADC1_IN8"] --> ADC1
+        A2["VOUT BUCK电压<br>PC1-ADC1_IN7"] --> ADC1
+        B1["IC C相电流<br>PA1-ADC2_IN2<br>VZS 零序电压 PC5-ADC2_IN11<br>VHFREF PC4-ADC2_IN5"] --> ADC2
+        C1["IB B相电流<br>PD10-ADC3_IN7<br>VBC B-C电压 PE11-ADC3_IN15<br>VBUS母线 PE7-ADC3_IN4"] --> ADC3
+        D1["IA A相电流<br>PD9-ADC4_IN13<br>VAB A-B电压 PD8-ADC4_IN12"] --> ADC4
     end
     subgraph STM32G474 ADC
         ADC1 --> C[LoadControlVar<br>物理量换算]
@@ -135,24 +136,33 @@ flowchart LR
     end
 ```
 
-| 物理信号 | ADC 模块 | 采样方式 | 用途 |
-|---------|:--------:|---------|------|
-| $I_a$ — A 相电流 | ADC1 | HRTIM 同步触发 + DMA | 三相电流 PR 环反馈 |
-| $I_b$ — B 相电流 | ADC1 | HRTIM 同步触发 + DMA | 三相电流 PR 环反馈 |
-| $I_c$ — C 相电流 | ADC1 | HRTIM 同步触发 + DMA | 三相电流 PR 环反馈 |
-| $U_{ab}$ — A-B 线电压 | ADC2 | HRTIM 同步触发 + DMA | 输入电压前馈 + 构造参考电流波形 |
-| $U_{bc}$ — B-C 线电压 | ADC2 | HRTIM 同步触发 + DMA | 输入电压前馈 + 构造参考电流波形 |
-| $U_z$ — 零序电压 | ADC3 | HRTIM 同步触发 + DMA | SVPWM 零序注入 / 三相平衡监测 |
-| $U_{bus}$ — 直流母线电压 | ADC3 | HRTIM 同步触发 + DMA | 电压外环反馈 + 过压保护 |
-| $I_{buck}$ — BUCK 输出电流 | ADC4 | 定时触发 + DMA | BUCK 电流内环反馈 |
-| $U_{buck}$ — BUCK 输出电压 | ADC4 | 定时触发 + DMA | BUCK 电压外环反馈 |
+| 物理信号 | GPIO | ADCx_INx | DMA 索引 | 用途 |
+|---------|:----:|:--------:|:--------:|------|
+| $I_{L}$ — BUCK 电感电流 | PC2 | ADC1_IN8 | 0 | BUCK 电流内环反馈，由 ADC4 EOS 触发环路函数 |
+| $V_{OUT}$ — BUCK 输出电压 | PC1 | ADC1_IN7 | 1 | BUCK 电压外环反馈 |
+| $I_C$ — C 相电流 | PA1 | ADC2_IN2 | 0 | 三相电流 PR 环反馈 |
+| $V_{ZS}$ — 零序电压 | PC5 | ADC2_IN11 | 1 | SVPWM 零序注入 / 三相平衡监测 |
+| $V_{HFREF}$ — 半母线参考 | PC4 | ADC2_IN5 | 2 | 辅助参考 |
+| $I_B$ — B 相电流 | PD10 | ADC3_IN7 | 0 | 三相电流 PR 环反馈 |
+| $V_{BC}$ — B-C 线电压 | PE11 | ADC3_IN15 | 1 | 输入电压前馈 + 构造参考电流波形 |
+| $V_{BUS}$ — 直流母线电压 | PE7 | ADC3_IN4 | 2 | 电压外环反馈 + 过压保护 |
+| $I_A$ — A 相电流 | PD9 | ADC4_IN13 | 0 | 三相电流 PR 环反馈 |
+| $V_{AB}$ — A-B 线电压 | PD8 | ADC4_IN12 | 1 | 输入电压前馈 + 构造参考电流波形 |
 
 **ADC 硬件配置要点**：
 
-- ADC1/2/3 由 **HRTIM1 硬件同步触发**，保证三相采样时刻一致
-- ADC4 独立于 HRTIM，由定时器触发以匹配 BUCK 控制频率
-- 循环 DMA 模式，缓冲区内数据自动更新无需 CPU 干预
-- 使用 `LoadControlVar()` 在中断中完成原始值 → 物理量换算（斜率 + 零偏）
+- **HRTIM 触发链**：各 ADC 由对应 HRTIM 定时器的比较事件硬件触发，实现全自动同步采样：
+
+| ADC | HRTIM 定时器 | 触发事件 | HRTIM ADC Trigger | 说明 |
+|:---:|:-----------:|---------|:-----------------:|------|
+| ADC1 | Timer D (BUCK) | CMP3 | ADCTRIG_1 | BUCK 电流/电压采样，EOS ISR 调用 `MainLoop()` |
+| ADC2 | Timer B (整流 B) | CMP3 | ADCTRIG_3 | IC、VZS、VHFREF 采样 |
+| ADC3 | Timer C (整流 C) | CMP4 | ADCTRIG_5 | IB、VBC、VBUS 采样 |
+| ADC4 | Timer A (整流 A) | CMP4 | ADCTRIG_4 | IA、VAB 采样 |
+
+- **采样顺序**：ADC4（Timer A）→ ADC2（Timer B）→ ADC3（Timer C）→ ADC1（Timer D）随各自定时器时序依次触发
+- **循环 DMA 模式**，缓冲区内数据自动更新无需 CPU 干预
+- 使用 `LoadControlVar()` 在 ADC4 的 EOS 中断（或 HRTIM 中断）中完成原始值 → 物理量换算（斜率 + 零偏）
 - **电压有效值计算**：使用与 PF 移相**共用**的环形队列缓冲区（循环数组），对 $U_a, U_b$ 做递推滑动窗口 RMS。每采样一个新点 $x[k]$，压入队列同时弹出最旧值 $x[k-N]$：
   $$
   \Sigma \gets \Sigma + x^2[k] - x^2[k-N], \quad U_{rms} = \sqrt{\frac{\Sigma}{N}}
@@ -309,7 +319,7 @@ Idc_ref (直流)                    Uab, Ubc (ADC 采样)
 ```mermaid
 flowchart LR
     subgraph 第一级[第一级 硬件快速封锁 &lt; 1 µs]
-        A1["电流传感器 LEM<br>三相输出 + BUCK"] --> A2["窗口比较器<br>LM393 / TLV3201"]
+        A1["电流传感器 LEM<br>三相输出 + BUCK"] --> A2["窗口比较器<br>LMV393"]
         A2 --> A3["HRTIM_FLT 输入<br>硬件立即封锁 PWM"]
         A3 --> A4["所有半桥<br>高阻态"]
     end
@@ -395,10 +405,14 @@ flowchart LR
 │  └────────────────────────────────────────────────┘   │
 │                                                        │
 │  ┌─ HRTIM1 资源分配 ───────────────────────────────┐  │
-│  │  Timer A: 整流 A 相 (PWM_AH, PWM_AL)            │   │
-│  │  Timer B: 整流 B 相 (PWM_BH, PWM_BL)            │   │
-│  │  Timer C: 整流 C 相 (PWM_CH, PWM_CL)            │   │
-│  │  Timer D: BUCK 半桥 (PWM_DH, PWM_DL)            │   │
+│  │  Timer A: 整流 A 相 (TA2=AH, TA1=AL)            │   │
+│  │  Timer B: 整流 B 相 (TB2=BH, TB1=BL)            │   │
+│  │  Timer C: 整流 C 相 (TC2=CH, TC1=CL)            │   │
+│  │  Timer D: BUCK 半桥 (TD2=NH, TD1=NL)            │   │
+│  │  PWM EN → GPIO 3V4                              │   │
+│  │  OC 保护 → HRTIM FLT1                           │   │
+│  │  ADC 触发: TA CMP4→ADC4 / TB CMP3→ADC2         │   │
+│  │            TC CMP4→ADC3 / TD CMP3→ADC1→EOS→Main │   │
 │  └────────────────────────────────────────────────┘   │
 └──────────────────────────┬────────────────────────────┘
                            │
@@ -411,7 +425,8 @@ flowchart LR
 
 - **前级 — 三相两电平 PWM 整流器**：3 个半桥（HRTIM A/B/C），将三相交流电整流为直流母线电压，同时实现 PFC（功率因数校正）。控制策略为电压外环 PI 输出直流电流幅值 `Idc_ref`，与采样输入电压经有效值归一化后的单位波形相乘，构造正弦参考电流，再送入双 PR 电流内环（仅控制 A/B 两相，C 相由 $-A-B$ 导出）。无需 $dq$ 旋转坐标系和锁相环（PLL）。
 - **后级 — BUCK 降压变换器**：1 个半桥（HRTIM D），将不稳定的直流母线电压降压至 36 V 稳定输出。控制策略为 PI 电压环 + P 电流环。
-- **共 4 个半桥**，全部由 **HRTIM1** 驱动，实现高分辨率 PWM 输出。
+- **共 4 个半桥**，全部由 **HRTIM1** 驱动。PWM 引脚分配：TA2=AH / TA1=AL（整流 A），TB2=BH / TB1=BL（整流 B），TC2=CH / TC1=CL（整流 C），TD2=NH / TD1=NL（BUCK）。PW EN 由 GPIO 3V4 控制，过流保护接入 HRTIM FLT1。
+- **ADC 触发**：TA CMP4→ADC4（IA/VAB），TB CMP3→ADC2（IC/VZS/VHFREF），TC CMP4→ADC3（IB/VBC/VBUS），TD CMP3→ADC1（IOUT/VOUT），ADC4 EOS 中断调用 `MainLoop()`。
 - **功率因数调节**：通过数组延迟输入电压波形实现移相，延迟后的单位化电压与 `Idc_ref` 相乘即得到所需 PF 的正弦参考电流。
 
 ---
@@ -454,14 +469,21 @@ flowchart LR
 ### 实时控制路径
 
 ```
-HRTIM 重复中断 (开关频率)
+HRTIM 触发链 (开关频率 30 kHz)
     │
-    └── MainLoop()                          [conv_controller.c]
-         │
-         ├── LoadControlVar() ← ADC DMA 缓冲  [conv_adc.c]
-         │    └── 9 路采样 → float 物理量
-         │
-         ├── [整流器慢速路径 — 非实时更新]
+    ├── Timer A CMP4 ─→ ADCTRIG_4 ─→ ADC4  (IA, VAB)
+    ├── Timer B CMP3 ─→ ADCTRIG_3 ─→ ADC2  (IC, VZS, VHFREF)
+    ├── Timer C CMP4 ─→ ADCTRIG_5 ─→ ADC3  (IB, VBC, VBUS)
+    └── Timer D CMP3 ─→ ADCTRIG_1 ─→ ADC1  (IOUT, VOUT)
+                                          │
+                                          └── EOS ISR
+                                              │
+                                              └── MainLoop()  [conv_controller.c]
+                                                   │
+                                                   ├── LoadControlVar() ← ADC DMA 缓冲  [conv_adc.c]
+                                                   │    └── 10 路采样 → float 物理量
+                                                   │
+                                                   ├── [整流器慢速路径 — 非实时更新]
          │    ├── 有效值计算 (滑动窗口)
          │    ├── 单位化: Ux_norm = Ux / Urms
          │    └── (可选) PF 移相: 数组延迟电压波形
@@ -505,8 +527,8 @@ HRTIM 重复中断 (开关频率)
 | 项目 | 规格 |
 |------|------|
 | **主控 MCU** | STM32G474VCT6 (Cortex-M4F @ 120 MHz，可超频至 240 MHz) |
-| **PWM 定时器** | HRTIM1 (6 个定时器单元, 高分辨率 ~217 ps)，本系统使用 A/B/C/D 四单元 |
-| **ADC** | 4 个独立 ADC (12-bit, 硬件触发同步采样, DMA 循环传输) |
+| **PWM 定时器** | HRTIM1 (6 个定时器单元, 高分辨率 ~217 ps)，使用 A/B/C/D 四单元；TA2=AH/TA1=AL, TB2=BH/TB1=BL, TC2=CH/TC1=CL, TD2=NH/TD1=NL；PWM EN → GPIO 3V4, OC → FLT1 |
+| **ADC** | 4 个独立 ADC (12-bit, 硬件触发同步采样, DMA 循环传输)；触发链: TA CMP4→ADC4, TB CMP3→ADC2, TC CMP4→ADC3, TD CMP3→ADC1→EOS→MainLoop |
 | **硬件加速** | CCM SRAM (关键代码如 MainLoop 放入 CCM 以提高实时性) |
 | **显示** | 1.3" OLED 128×64 (SH1106, SPI 4线) |
 | **比较器** | 7 路模拟比较器 (过流硬件保护) |

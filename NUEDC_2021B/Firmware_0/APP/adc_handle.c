@@ -11,7 +11,7 @@ void ADC_Task(void *argument)
     Protection_Init1(&ui);
     Protection_Init2(&ui);
     
-    //ADC_Init();
+    ADC_Init();
     
     Timer_Init(&ui);
     

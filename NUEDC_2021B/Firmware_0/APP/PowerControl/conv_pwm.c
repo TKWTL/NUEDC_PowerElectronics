@@ -6,27 +6,27 @@
 
 void Timer_Init(ui_t *ui){
     SetFrequency(ui);
+
+    LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_MASTER, INITIAL_HRTIM_PERIOD/2);
+    LL_HRTIM_TIM_SetCompare2(HRTIM1, LL_HRTIM_TIMER_MASTER, INITIAL_HRTIM_PERIOD/2);
     
-    //LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_A, INITIAL_HRTIM_PERIOD*1/7);
-    //LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_B, INITIAL_HRTIM_PERIOD*2/7);
-    //LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_C, INITIAL_HRTIM_PERIOD*3/7);
-    //LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_D, INITIAL_HRTIM_PERIOD*4/7);
-    //LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_E, INITIAL_HRTIM_PERIOD*5/7);
-    //LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_F, INITIAL_HRTIM_PERIOD*6/7);
+    LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_A, INITIAL_HRTIM_PERIOD*1/7);
+    LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_B, INITIAL_HRTIM_PERIOD*2/7);
+    LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_C, INITIAL_HRTIM_PERIOD*3/7);
+    LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_D, INITIAL_HRTIM_PERIOD*4/7);
+
+    LL_HRTIM_TIM_SetCompare4(HRTIM1, LL_HRTIM_TIMER_A, 100);
+    LL_HRTIM_TIM_SetCompare3(HRTIM1, LL_HRTIM_TIMER_B, 100);
+    LL_HRTIM_TIM_SetCompare4(HRTIM1, LL_HRTIM_TIMER_C, 100);
+    LL_HRTIM_TIM_SetCompare3(HRTIM1, LL_HRTIM_TIMER_D, 100);
 
 	LL_HRTIM_TIM_CounterEnable(HRTIM1,  LL_HRTIM_TIMER_MASTER|
                                         LL_HRTIM_TIMER_A|
                                         LL_HRTIM_TIMER_B|
                                         LL_HRTIM_TIMER_C|
-                                        LL_HRTIM_TIMER_D|
-                                        LL_HRTIM_TIMER_E|
-                                        LL_HRTIM_TIMER_F
+                                        LL_HRTIM_TIMER_D
     );
-    LL_HRTIM_EnableIT_REP(HRTIM1, LL_HRTIM_TIMER_D); //注意使能中断
-
-    LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_1);
-    LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_2);
-    LL_DAC_Enable(DAC2, LL_DAC_CHANNEL_1);
+    //LL_HRTIM_EnableIT_REP(HRTIM1, LL_HRTIM_TIMER_D); //注意使能中断
 }
 
 //重装载值96~65503
@@ -46,8 +46,6 @@ void SetFrequency(ui_t *ui){
     LL_HRTIM_TIM_SetPeriod(HRTIM1, LL_HRTIM_TIMER_B, g_Timer_Period);
     LL_HRTIM_TIM_SetPeriod(HRTIM1, LL_HRTIM_TIMER_C, g_Timer_Period);
     LL_HRTIM_TIM_SetPeriod(HRTIM1, LL_HRTIM_TIMER_D, g_Timer_Period);
-    LL_HRTIM_TIM_SetPeriod(HRTIM1, LL_HRTIM_TIMER_E, g_Timer_Period);
-    LL_HRTIM_TIM_SetPeriod(HRTIM1, LL_HRTIM_TIMER_F, g_Timer_Period);
     //更改同步触发
     LL_HRTIM_TIM_SetPeriod(HRTIM1, LL_HRTIM_TIMER_MASTER, g_Timer_Period - 1);
     LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_MASTER, (g_Timer_Period / 2) - 1);//逆变器组定时器复位设置

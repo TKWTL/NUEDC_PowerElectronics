@@ -56,6 +56,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
+extern DMA_HandleTypeDef hdma_adc4;
 extern I2C_HandleTypeDef hi2c1;
 extern DMA_HandleTypeDef hdma_spi4_tx;
 extern DMA_HandleTypeDef hdma_uart4_tx;
@@ -244,8 +245,29 @@ void DMA1_Channel5_IRQHandler(void)
   /* USER CODE END DMA1_Channel5_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_uart4_rx);
   /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-
+}
+RAMFUNC void DMA1_Channel6_IRQHandler(void)
+{
+  //仅在Transfer Complete时执行MainLoop，避免Half Transfer重复触发
+  if (__HAL_DMA_GET_FLAG(&hdma_adc4, DMA_FLAG_TC6) != RESET) {
+      MainLoop();
+  }
+  #if 0
   /* USER CODE END DMA1_Channel5_IRQn 1 */
+}
+
+/**
+  * @brief This function handles DMA1 channel6 global interrupt.
+  */
+void DMA1_Channel6_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA1_Channel6_IRQn 0 */
+    #endif
+  /* USER CODE END DMA1_Channel6_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_adc4);
+  /* USER CODE BEGIN DMA1_Channel6_IRQn 1 */
+
+  /* USER CODE END DMA1_Channel6_IRQn 1 */
 }
 
 /**
@@ -320,34 +342,12 @@ void TIM7_DAC_IRQHandler(void)
   /* USER CODE END TIM7_DAC_IRQn 0 */
   HAL_TIM_IRQHandler(&htim7);
   /* USER CODE BEGIN TIM7_DAC_IRQn 1 */
-}
 
-
-RAMFUNC void HRTIM1_TIMD_IRQHandler(void)
-{
-    LL_HRTIM_ClearFlag_REP(HRTIM1, LL_HRTIM_TIMER_D);
-    MainLoop();
-#if 0
   /* USER CODE END TIM7_DAC_IRQn 1 */
-}
-
-/**
-  * @brief This function handles HRTIM timer D global interrupt.
-  */
-void HRTIM1_TIMD_IRQHandler(void)
-{
-  /* USER CODE BEGIN HRTIM1_TIMD_IRQn 0 */
-
-  /* USER CODE END HRTIM1_TIMD_IRQn 0 */
-  /* USER CODE BEGIN HRTIM1_TIMD_IRQn 1 */
-#endif
-  /* USER CODE END HRTIM1_TIMD_IRQn 1 */
 }
 
 /* USER CODE BEGIN 1 */
 
-//记得CubeMX生成代码后添加RAMFUNC 前缀
-//LL_HRTIM_ClearFlag_REP(HRTIM1, LL_HRTIM_TIMER_D);//必须手动清除中断标志，否则你会发现无法退出中断
-//MainLoop();
+//MainLoop()已移至DMA1_Channel6_IRQHandler中
 
 /* USER CODE END 1 */

@@ -50,9 +50,14 @@ inline float ReadControlVar(PowerControlVar_t *p_var){
 //启动ADC的DMA转换，需要在上电后调用一次
 //每个ADC有几个Number Of Conversion，就在后面填几个
 void ADC_Init(void){
-    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC1_Buffer, 4);
-    HAL_ADC_Start_DMA(&hadc2, (uint32_t*)ADC2_Buffer, 4);
-    //HAL_ADC_Start_DMA(&hadc3, (uint32_t*)ADC3_Buffer, 2);
+    HAL_ADC_Start_DMA(&hadc1, (uint32_t*)ADC1_Buffer, 2);
+    HAL_ADC_Start_DMA(&hadc2, (uint32_t*)ADC2_Buffer, 3);
+    HAL_ADC_Start_DMA(&hadc3, (uint32_t*)ADC3_Buffer, 3);
+    HAL_ADC_Start_DMA(&hadc4, (uint32_t*)ADC4_Buffer, 2);
+    
+    LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_1);
+    LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_2);
+    LL_DAC_Enable(DAC2, LL_DAC_CHANNEL_1);
 }
 
 /******************************自动校准函数************************************/
