@@ -56,7 +56,7 @@
 /* USER CODE END 0 */
 
 /* External variables --------------------------------------------------------*/
-extern DMA_HandleTypeDef hdma_adc4;
+extern DMA_HandleTypeDef hdma_adc1;
 extern I2C_HandleTypeDef hi2c1;
 extern DMA_HandleTypeDef hdma_spi4_tx;
 extern DMA_HandleTypeDef hdma_uart4_tx;
@@ -245,29 +245,8 @@ void DMA1_Channel5_IRQHandler(void)
   /* USER CODE END DMA1_Channel5_IRQn 0 */
   HAL_DMA_IRQHandler(&hdma_uart4_rx);
   /* USER CODE BEGIN DMA1_Channel5_IRQn 1 */
-}
-RAMFUNC void DMA1_Channel6_IRQHandler(void)
-{
-  //仅在Transfer Complete时执行MainLoop，避免Half Transfer重复触发
-  if (__HAL_DMA_GET_FLAG(&hdma_adc4, DMA_FLAG_TC6) != RESET) {
-      MainLoop();
-  }
-  #if 0
+
   /* USER CODE END DMA1_Channel5_IRQn 1 */
-}
-
-/**
-  * @brief This function handles DMA1 channel6 global interrupt.
-  */
-void DMA1_Channel6_IRQHandler(void)
-{
-  /* USER CODE BEGIN DMA1_Channel6_IRQn 0 */
-    #endif
-  /* USER CODE END DMA1_Channel6_IRQn 0 */
-  HAL_DMA_IRQHandler(&hdma_adc4);
-  /* USER CODE BEGIN DMA1_Channel6_IRQn 1 */
-
-  /* USER CODE END DMA1_Channel6_IRQn 1 */
 }
 
 /**
@@ -342,12 +321,64 @@ void TIM7_DAC_IRQHandler(void)
   /* USER CODE END TIM7_DAC_IRQn 0 */
   HAL_TIM_IRQHandler(&htim7);
   /* USER CODE BEGIN TIM7_DAC_IRQn 1 */
-
+}
+RAMFUNC void DMA2_Channel1_IRQHandler(void)
+{
+//仅在Transfer Complete时执行MainLoop，避免Half Transfer重复触发
+  if (__HAL_DMA_GET_FLAG(&hdma_adc1, DMA_FLAG_TC1) != RESET) {
+      MainLoop();
+  }
+  #if 0
   /* USER CODE END TIM7_DAC_IRQn 1 */
 }
 
+/**
+  * @brief This function handles DMA2 channel1 global interrupt.
+  */
+void DMA2_Channel1_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA2_Channel1_IRQn 0 */
+#endif
+  /* USER CODE END DMA2_Channel1_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_adc1);
+  /* USER CODE BEGIN DMA2_Channel1_IRQn 1 */
+
+  /* USER CODE END DMA2_Channel1_IRQn 1 */
+}
+
 /* USER CODE BEGIN 1 */
+//屏蔽cubemx修改示例：
+#if 0
+void TIM7_DAC_IRQHandler(void)
+{
+  /* USER CODE BEGIN TIM7_DAC_IRQn 0 */
 
-//MainLoop()已移至DMA1_Channel6_IRQHandler中
+  /* USER CODE END TIM7_DAC_IRQn 0 */
+  HAL_TIM_IRQHandler(&htim7);
+  /* USER CODE BEGIN TIM7_DAC_IRQn 1 */
+}
+RAMFUNC void DMA2_Channel1_IRQHandler(void)
+{
+//仅在Transfer Complete时执行MainLoop，避免Half Transfer重复触发
+  if (__HAL_DMA_GET_FLAG(&hdma_adc4, DMA_FLAG_TC6) != RESET) {
+      MainLoop();
+  }
+  #if 0
+  /* USER CODE END TIM7_DAC_IRQn 1 */
+}
 
+/**
+  * @brief This function handles DMA2 channel1 global interrupt.
+  */
+void DMA2_Channel1_IRQHandler(void)
+{
+  /* USER CODE BEGIN DMA2_Channel1_IRQn 0 */
+#endif
+  /* USER CODE END DMA2_Channel1_IRQn 0 */
+  HAL_DMA_IRQHandler(&hdma_adc1);
+  /* USER CODE BEGIN DMA2_Channel1_IRQn 1 */
+
+  /* USER CODE END DMA2_Channel1_IRQn 1 */
+}
+#endif
 /* USER CODE END 1 */

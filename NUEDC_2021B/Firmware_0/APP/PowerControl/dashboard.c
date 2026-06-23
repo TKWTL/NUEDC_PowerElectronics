@@ -5,12 +5,14 @@
 
 
 //需要设置的变量 和对应结构体
-float VO_Set = 32.0f;//输出电压
-float IO_Set = 2.0f;//输出电压限值（仅主机）
+float VO_Set = 36.0f;//输出电压
+float IO_Lim = 2.5f;//输出电流限制
+float PF_Set = 1.0f;//输入功率因数
 
 SetVar_t SetVar[] = {
-    {&VO_Set,   1.0f, 48.0f,  8.0f,   NULL,   NULL},//设定输出电压
-    {&IO_Set,   0.1f, 4.0f,   0.5f,   NULL,   NULL}//设定输出电流
+    {&VO_Set,   4.0f, 48.0f,  8.0f,   NULL,   NULL},//设定输出电压
+    {&IO_Lim,   0.5f, 4.0f,   0.0f,   NULL,   NULL},//设定输出电流
+    {&PF_Set,   0.01f,1.0f,   0.9f,   NULL,   NULL}//设定输出功率因数
 };//{&(Name),   Step, Max,    Min,    MaxLim, MinLim}
 
 void VarInc(uint8_t index){
@@ -27,13 +29,13 @@ void VarDec(uint8_t index){
 }
 extern float vrms_out;
 FilterVar_t 
-    POUT_Filter = {1.2f, 500},
     VBUS_Filter = {0.2f, 50},
-    UV_A_Filter = {0.2f, 20};
+    IOUT_Filter = {0.2f, 50},
+    VA_Filter   = {0.2f, 50},
+    VC_Filter   = {0.2f, 50};
 
 //需要显示的变量
 //输出电压有效值，输出电流有效值，输入电压，日期时间，测量到的输出频率
-extern uint8_t LoopMode;
 //供ui_conf调用的显示函数
 void DashBoard(ui_t *ui){
     char buf[20];
@@ -51,45 +53,48 @@ void DashBoard(ui_t *ui){
         value = (int16_t)UI_Animation(68, (float)value, &ui->animation.optionbarPos_ani);
         //标题
         Disp_SetFont(font_menu_main_h12w6);
-        Disp_DrawStr(69-value, 10, " ACDC-2021B ");
+        Disp_DrawStr(69-value, 10, "-ACDC-2021B-");
             
         
         //VL Set
-        sprintf(buf, "VOSet:%2.1fV", VO_Set);
+        sprintf(buf, "Vout:%2.1fV", VO_Set);
+        Disp_DrawStr(69-value, 23, buf);
+        //IO Lim
+        sprintf(buf, "ILim: %1.1fA", IO_Lim);
         Disp_DrawStr(69-value, 36, buf);
-        //IO Set
-        sprintf(buf, "IO Set:%1.1fA", IO_Set);
+        //PF Set
+        sprintf(buf, "  PF: %1.2f", PF_Set);
         Disp_DrawStr(69-value, 49, buf);
         
-        //VH
-        sprintf(buf, "Po:%.2fW", VarFilter(&POUT_Filter, ReadControlVar(&WV_INV_t)* ReadControlVar(&IV_INV_t)- (ReadControlVar(&UV_INV_t)- ReadControlVar(&WV_INV_t))* ReadControlVar(&IU_INV_t)));
-        Disp_DrawStr(value+ 1, 23, buf);
+        //VBUS
         sprintf(buf, "BUS:%2.2fV", VarFilter(&VBUS_Filter, ReadControlVar(&VBUS_t)));
+        Disp_DrawStr(value+ 1, 23, buf);
+        //IOUT
+        sprintf(buf, "IOUT:%1.2fA", VarFilter(&IOUT_Filter, ReadControlVar(&IN_t)));
         Disp_DrawStr(value+ 1, 36, buf);
+
+        //VArms
+        sprintf(buf, "VA:%.2fV", VarFilter(&VA_Filter, ReadControlVar(&VAB_t)));
+        Disp_DrawStr(75-value, 62, buf);
+        //VCrms
+        sprintf(buf, "VC:%.2fV", VarFilter(&VC_Filter, ReadControlVar(&VBC_t)));
+        Disp_DrawStr(value+ 7, 62, buf);
         
-        sprintf(buf, "UV:%.2fV", VarFilter(&UV_A_Filter, vrms_out));
-        Disp_DrawStr(value+ 1, 49, buf);
-        /*sprintf(buf, "WV:%1.3fV", VarFilter(&WV_I_Filter, ReadControlVar(&VBUS_t)));
-        Disp_DrawStr(value+ 1, 62, buf);
-        sprintf(buf, "IW:%1.3fA", VarFilter(&IW_R_Filter, ReadControlVar(&VBUS_t)));
-        Disp_DrawStr(69-value, 62, buf);*/
         
         
         Disp_SetFont(font_home_h6w4);
-        //时间
         sprintf(buf, "%02d:%02d:%02d", sTime.Hours, sTime.Minutes, sTime.Seconds);
-        Disp_DrawStr(value+ 24, 6, buf);
-        //日期
+        Disp_DrawStr(value+ 24, 6, buf);//时间
         sprintf(buf, "20%02d/%02d/%02d", sTime.Year, sTime.Month, sTime.Date);
-        Disp_DrawStr(value+ 20, 12, buf);
+        Disp_DrawStr(value+ 20, 12, buf);//日期
         
         
         //选择框
         color = 2;
         Disp_SetDrawColor(&color);
-        value2 = (int16_t)UI_Animation(13* var_switch+ 27, (float)value2, &ui->animation.cursor_ani);
+        value2 = (int16_t)UI_Animation(13* var_switch+ 14, (float)value2, &ui->animation.cursor_ani);
         Disp_DrawRBox(0, value2, 67, 10, 0);
-        //启动框
+        //启动标识框
         if(g_conv_state == CONV_RUN){
             Disp_DrawRBox(0, 0, 73, 11, 0);//W=6*12+1=73
         }
@@ -111,11 +116,11 @@ void DashBoard(ui_t *ui){
                 else g_conv_state = CONV_STOP;
                 break;
             case UI_ACTION_PLUS:
-                if(var_switch == 0) var_switch = 1;
+                if(var_switch == 0) var_switch = 2;
                 else var_switch--;
                 break;
             case UI_ACTION_MINUS:
-                if(var_switch >= 1) var_switch = 0;
+                if(var_switch >= 2) var_switch = 0;
                 else var_switch++;
                 break;
             case UI_ACTION_UP:

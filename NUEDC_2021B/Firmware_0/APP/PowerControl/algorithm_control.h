@@ -5,21 +5,48 @@
 #include "math.h"
 
 //PID控制器结构体
-typedef struct {
+typedef struct
+{
     float fpKp;
     float fpKi;
     float fpKd;
     float fpDt;
+
+    float fpKiDt;       // Ki * Dt，减少实时计算
+    float fpKdDivDt;    // Kd / Dt，减少实时计算
+
+    float fpKaw;        // 回算抗饱和系数，建议 0.05 ~ 1.0
+
     float fpErr;
     float fpPreErr;
-    float fpIntegral;
-    float fpOutput;
-    float fpLim;
-    float fpPreOutput;
+
+    float fpIntegral;   // 积分项，单位直接等于输出单位
+    float fpOutput;     // 实际限幅后的输出
+    float fpRawOutput;  // 未限幅输出，便于调试
 } ST_PID;
 
-void PID_Init(ST_PID *pid, float Kp, float Ki, float Kd, float Dt, float Lim);
-float PID_Calc(ST_PID *pid, float Des, float FB);
+
+void PID_Init(ST_PID *pid,
+              float Kp,
+              float Ki,
+              float Kd,
+              float Dt,
+              float Kaw);
+
+void PID_SetParam(ST_PID *pid,
+                  float Kp,
+                  float Ki,
+                  float Kd,
+                  float Dt,
+                  float Kaw);
+
+void PID_Reset(ST_PID *pid);
+
+float PID_Calc(ST_PID *pid,
+               float Des,
+               float FB,
+               float OutMin,
+               float OutMax);
 
 //PR控制器结构体
 typedef struct

@@ -28,6 +28,8 @@ extern "C" {
 #include "conv_loop.h"
 #include "conv_protection.h"
 #include "conv_pwm.h"
+#include "algorithm_control.h"
+
 #include "pm_ui_register.h"
 
 //UI对象句柄

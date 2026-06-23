@@ -58,7 +58,18 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+//SRAM2常量池
+RAMRO const float INV_3_F32 = 0.3333333433f;  // 1/3
+RAMRO const float INV_5_F32 = 0.2000000000f;  // 1/5
+RAMRO const float INV_6_F32 = 0.1666666716f;  // 1/6
 
+RAMRO const float SQRT2_F32     = 1.41421356237f;
+RAMRO const float SQRT3_F32     = 1.73205080757f;
+RAMRO const float SQRT6_F32     = 2.44948974278f;
+
+RAMRO const float INV_SQRT2_F32 = 0.70710678118f;
+RAMRO const float INV_SQRT3_F32 = 0.57735026919f;
+RAMRO const float INV_SQRT6_F32 = 0.40824829046f;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -92,8 +103,8 @@ void RTC_Restart_Init(void)
 extern uint32_t Load$$ER_IROM1$$Base; // 获取 Flash 中原始向量表地址
 
 void RelocateVectorTable(void) {
-    const uint32_t *pSrc  = &Load$$ER_IROM1$$Base;              // Flash 中的向量表起始
-    uint32_t *pDest = (uint32_t *)VECT_TAB_START;         // CCM RAM 中的目标位置
+    const uint32_t *pSrc  = &Load$$ER_IROM1$$Base;  // Flash 中的向量表起始
+    uint32_t *pDest = (uint32_t *)VECT_TAB_START;   // CCM RAM 中的目标位置
 
     __disable_irq();
     /* 1. 将向量表从 Flash 拷贝到 CCM SRAM */

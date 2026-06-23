@@ -15,7 +15,7 @@ extern "C" {
 
 #define ANTI_WINDUP_LIMIT   1.23f                                               //抗饱和PR算法输出的最大幅值
     
-#define MODULATION_START    0.271f                                              //经过测试得出的起始偏置点位置
+#define MODULATION_START    0.271f                                              //经过测试得出的起始偏置点位置（被实时计算的零序取代）
 #define MODULATION_MIDPOINT 0.500f                                              //经过测试得出可以给出最大摆幅的调制偏置点位置
 #define MODULATION_SLOPE    0.001f                                              //每个周期偏置缓启动增长步长，必须大于软启动步长
     
@@ -34,6 +34,9 @@ typedef enum{
 }ConvStatus_t;
     
 extern ConvStatus_t g_conv_state;//转换器正在运行标志变量
+extern float soft_k;
+extern float thph_offset;
+extern float inv_VBUS;
 
 /*******************************环路核心函数***********************************/
 //取采样值，环路计算，保护，周期性统计

@@ -16,11 +16,11 @@ void Timer_Init(ui_t *ui);
 void SetFrequency(ui_t *ui);
     
 //设置占空比，根据周期和输入的百分比值，带占空比限幅
-void SetDuty_Inv(float Du, float Dv, float Dw);
+void SetDuty_Buck(float Dbuck);
 void SetDuty_Rec(float Du, float Dv, float Dw);
 
 //打开PWM
-void PWM_Start_Inv(void);
+void PWM_Start_Buck(void);
 void PWM_Start_Rec(void);
 //关闭PWM
 void PWM_Stop(void);

@@ -2,43 +2,147 @@
 #include <math.h>
 #include <armdsp.h>
 
-void PID_Init(ST_PID *pid, float Kp, float Ki, float Kd, float Dt, float Lim)
+static inline float PID_Clamp(float x, float min, float max)
+{
+    if (x > max) return max;
+    if (x < min) return min;
+    return x;
+}
+
+
+void PID_Init(ST_PID *pid,
+              float Kp,
+              float Ki,
+              float Kd,
+              float Dt,
+              float Kaw)
 {
     pid->fpKp = Kp;
     pid->fpKi = Ki;
     pid->fpKd = Kd;
     pid->fpDt = Dt;
-    pid->fpLim = Lim;
-    pid->fpErr = 0;
-    pid->fpPreErr = 0;
-    pid->fpIntegral = 0;
-    pid->fpOutput = 0;
-    pid->fpPreOutput = 0;
+
+    pid->fpKiDt = Ki * Dt;
+    pid->fpKdDivDt = Kd / Dt;
+
+    pid->fpKaw = Kaw;
+
+    pid->fpErr = 0.0f;
+    pid->fpPreErr = 0.0f;
+
+    pid->fpIntegral = 0.0f;
+    pid->fpOutput = 0.0f;
+    pid->fpRawOutput = 0.0f;
 }
 
-float PID_Calc(ST_PID *pid, float Des, float FB)
+
+void PID_SetParam(ST_PID *pid,
+                  float Kp,
+                  float Ki,
+                  float Kd,
+                  float Dt,
+                  float Kaw)
 {
+    pid->fpKp = Kp;
+    pid->fpKi = Ki;
+    pid->fpKd = Kd;
+    pid->fpDt = Dt;
+
+    pid->fpKiDt = Ki * Dt;
+    pid->fpKdDivDt = Kd / Dt;
+
+    pid->fpKaw = Kaw;
+}
+
+
+void PID_Reset(ST_PID *pid)
+{
+    pid->fpErr = 0.0f;
+    pid->fpPreErr = 0.0f;
+
+    pid->fpIntegral = 0.0f;
+    pid->fpOutput = 0.0f;
+    pid->fpRawOutput = 0.0f;
+}
+
+
+float PID_Calc(ST_PID *pid,
+               float Des,
+               float FB,
+               float OutMin,
+               float OutMax)
+{
+    float err;
+    float p_out;
+    float i_out;
+    float d_out;
+    float raw_out;
+    float sat_out;
+    float aw_err;
+
+    // 防止上下限传反
+    if (OutMin > OutMax)
+    {
+        float temp = OutMin;
+        OutMin = OutMax;
+        OutMax = temp;
+    }
+
     pid->fpPreErr = pid->fpErr;
-    pid->fpErr = Des - FB;
-    
-    pid->fpIntegral += pid->fpErr * pid->fpDt;
-    
-    // 积分限幅
-    if(pid->fpIntegral > pid->fpLim) pid->fpIntegral = pid->fpLim;
-    if(pid->fpIntegral < -pid->fpLim) pid->fpIntegral = -pid->fpLim;
-    
-    float output = pid->fpKp * pid->fpErr 
-                + pid->fpKi * pid->fpIntegral 
-                + pid->fpKd * (pid->fpErr - pid->fpPreErr) / pid->fpDt;
-    
-    // 输出限幅
-    if(output > pid->fpLim) output = pid->fpLim;
-    if(output < -pid->fpLim) output = -pid->fpLim;
-    
-    pid->fpPreOutput = pid->fpOutput;
-    pid->fpOutput = output;
-    
-    return output;
+    err = Des - FB;
+    pid->fpErr = err;
+
+    /*
+     * 积分项直接以“输出单位”累加：
+     *
+     * 原来：
+     *     integral += err * Dt;
+     *     Iout = Ki * integral;
+     *
+     * 现在：
+     *     integral += Ki * Dt * err;
+     *
+     * 所以 fpIntegral 本身就是 Iout。
+     */
+    i_out = pid->fpIntegral + pid->fpKiDt * err;
+
+    p_out = pid->fpKp * err;
+    d_out = pid->fpKdDivDt * (err - pid->fpPreErr);
+
+    // 未限幅输出
+    raw_out = p_out + i_out + d_out;
+
+    // 实际输出限幅
+    sat_out = PID_Clamp(raw_out, OutMin, OutMax);
+
+    /*
+     * 反算法 / 回算抗饱和：
+     *
+     * aw_err = sat_out - raw_out
+     *
+     * 当没有饱和时：
+     *     sat_out == raw_out
+     *     aw_err = 0
+     *     积分项正常累加
+     *
+     * 当上限饱和时：
+     *     sat_out < raw_out
+     *     aw_err < 0
+     *     积分项被往回拉
+     *
+     * 当下限饱和时：
+     *     sat_out > raw_out
+     *     aw_err > 0
+     *     积分项被往回拉
+     */
+    aw_err = sat_out - raw_out;
+
+    pid->fpIntegral = i_out + pid->fpKaw * aw_err;
+
+    pid->fpRawOutput = raw_out;
+    pid->fpOutput = sat_out;
+
+    return sat_out;
 }
 
 /*******************************************************************

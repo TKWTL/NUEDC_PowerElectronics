@@ -12,31 +12,11 @@
 
 //在环路中运行的软件保护函数
 inline void Protection(void){
-    if(fabsf(ReadControlVar(&IU_INV_t)) > OOC){
+    /*if(fabsf(ReadControlVar(&VZS_t)) > OOV){
             PWM_Stop();
             g_conv_state = CONV_FAULT;
             Notification_Send_FromISR("U Over Current!!");
-    }
-    if(fabsf(ReadControlVar(&IV_INV_t)) > OOC){
-            PWM_Stop();
-            g_conv_state = CONV_FAULT;
-            Notification_Send_FromISR("V Over Current!!");
-    }
-    if(fabsf(ReadControlVar(&IW_REC_t)) > OOC){
-            PWM_Stop();
-            g_conv_state = CONV_FAULT;
-            Notification_Send_FromISR("W Over Current!!");
-    }
-    if(fabsf(ReadControlVar(&IU_REC_t)) > OOC){
-            PWM_Stop();
-            g_conv_state = CONV_FAULT;
-            Notification_Send_FromISR("U Over Current!!");
-    }
-    if(fabsf(ReadControlVar(&IV_REC_t)) > OOC){
-            PWM_Stop();
-            g_conv_state = CONV_FAULT;
-            Notification_Send_FromISR("V Over Current!!");
-    }
+    }*/
 }
 
 /*******************************************************************************

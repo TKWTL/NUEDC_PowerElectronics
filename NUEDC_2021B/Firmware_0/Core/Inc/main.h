@@ -120,14 +120,27 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 //用于链接地址分配
 #define RAMFUNC __attribute__((section(".ccm_text"), used))     //高频执行的程序，放在CCM SRAM
-#define RAMRO   __attribute__((section(".ram_ro"), used))       //常量池放在SRAM2
 #define RAMVAR  __attribute__((section(".ram_data"), used))     //快速变量放在SRAM2
+#define RAMRO   __attribute__((section(".ram_ro"), used))       //常量池也放在SRAM2
 
 //魔数，用于校验
 #define MAGIC 0x01919810U
 
 //ADC参考电压值
-#define ADC_VREF    3.3f
+#define ADC_VREF    3.300f
+
+//SRAM2常量池
+extern const float INV_3_F32;
+extern const float INV_5_F32;
+extern const float INV_6_F32;
+
+extern const float SQRT2_F32;
+extern const float SQRT3_F32;
+extern const float SQRT6_F32;
+
+extern const float INV_SQRT2_F32;
+extern const float INV_SQRT3_F32;
+extern const float INV_SQRT6_F32;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

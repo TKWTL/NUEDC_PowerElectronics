@@ -5,16 +5,19 @@ volatile uint16_t ADC2_Buffer[16];
 volatile uint16_t ADC3_Buffer[16];
 volatile uint16_t ADC4_Buffer[16];
 
-//需控制的参数配置
+RAMRO const float ADC12B_COUNT_TO_VOLT_F32    = ADC_VREF/ 4096.0f;
+
+//需控制的参数配置，更换新的一套采样参数时，可以留着旧的参数避免其他文件大量报错，在修改掉依赖文件后再删除
 RAMVAR PowerControlVar_t 
-    VBUS_t   = {ADC3_Buffer, 1, 19.5077f, 1.0947f, 0},//母线电压，单位V
-    IU_INV_t = {ADC1_Buffer, 1, 7.6668f, -12.1185f, 0},//逆变器U相输出电流，单位A，输出->半桥为正
-    IV_INV_t = {ADC1_Buffer, 0, 7.7004f, -12.179f, 0},//逆变器V相输出电流，单位A，输出->半桥为正
-    UV_INV_t = {ADC1_Buffer, 2, 32.1089f, -50.6137f, 0},//逆变器U相电压-V相电压，单位V
-    WV_INV_t = {ADC3_Buffer, 0, 32.3599f, -51.1981f, 0},//逆变器W相电压-V相电压，单位V
-    IU_REC_t = {ADC2_Buffer, 1, 7.6981f, -12.228f, 0},//整流器U相电感电流，单位A，输出->半桥为正
-    IV_REC_t = {ADC2_Buffer, 0, 7.8127f, -12.4264f, 0},//整流器V相电感电流，单位A，输出->半桥为正
-    IW_REC_t = {ADC1_Buffer, 3, 7.6981f, -12.205f, 0};//整流器W相电感电流，单位A，输出->半桥为正
+    VBUS_t= {ADC3_Buffer, 2, 20.8773f, 0.98294f, 0},//母线电压，单位V
+    IA_t  = {ADC4_Buffer, 0, 7.6668f, -12.1185f, 0},//整流器A相输入电流，单位A，输入->半桥为负
+    //整流器B相输入电流省略不接
+    IC_t  = {ADC2_Buffer, 0, 7.7004f, -12.179f, 0},//整流器C相输入电流，单位A，输入->半桥为负
+    VAB_t = {ADC4_Buffer, 1, 39.6042f, -63.3962f, 0},//整流器A相电压-B相电压，单位V
+    VBC_t = {ADC3_Buffer, 1, 39.3036f, -63.9931f, 0},//整流器B相电压-C相电压，单位V
+    VZS_t = {ADC2_Buffer, 1, 29.3706f, -47.6406f, 0},//整流器三相零序对地电压，单位V
+    IN_t  = {ADC1_Buffer, 0, 7.5093f, -12.025f, 0},//BUCK电感电流，单位A，半桥->输出为正
+    VN_t  = {ADC1_Buffer, 1, 21.2044f, 0.91925f, 0};//BUCK输出电压，单位V
     //实际待采集的量->对应的单片机端口->对应的ADC名称与通道->存放转换结果的数组和索引号
 
 //中间函数（未来会被展开）
@@ -22,7 +25,7 @@ static inline void CalcControlVar(PowerControlVar_t *p_var){
     float temp;
     uint16_t tmp = p_var->pBuffer[p_var->channel];
 		
-    temp = tmp* ADC_VREF/ 4096;
+    temp = tmp* ADC12B_COUNT_TO_VOLT_F32;
 		
     temp *= p_var->slope;
     temp += p_var->zero;
@@ -31,14 +34,14 @@ static inline void CalcControlVar(PowerControlVar_t *p_var){
 }
 //环路ISR一开始就必须执行的参数加载函数（将放入CCM RAM中加速运行）
 RAMFUNC inline void LoadControlVar(){
+    CalcControlVar(&IN_t);
+    CalcControlVar(&VN_t);
+    CalcControlVar(&IA_t);
+    CalcControlVar(&IC_t);
+    CalcControlVar(&VAB_t);
+    CalcControlVar(&VBC_t);
     CalcControlVar(&VBUS_t);
-    CalcControlVar(&IV_INV_t);
-    CalcControlVar(&IU_INV_t);
-    CalcControlVar(&UV_INV_t);
-    CalcControlVar(&WV_INV_t);
-    CalcControlVar(&IV_REC_t);
-    CalcControlVar(&IU_REC_t);
-    CalcControlVar(&IW_REC_t);
+    CalcControlVar(&VZS_t);
 }
 
 //从结构体中配置好的参数中取得数值并以float格式输出
@@ -54,7 +57,7 @@ void ADC_Init(void){
     HAL_ADC_Start_DMA(&hadc2, (uint32_t*)ADC2_Buffer, 3);
     HAL_ADC_Start_DMA(&hadc3, (uint32_t*)ADC3_Buffer, 3);
     HAL_ADC_Start_DMA(&hadc4, (uint32_t*)ADC4_Buffer, 2);
-    
+
     LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_1);
     LL_DAC_Enable(DAC1, LL_DAC_CHANNEL_2);
     LL_DAC_Enable(DAC2, LL_DAC_CHANNEL_1);

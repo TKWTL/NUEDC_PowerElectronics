@@ -15,10 +15,12 @@ void Timer_Init(ui_t *ui){
     LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_C, INITIAL_HRTIM_PERIOD*3/7);
     LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_D, INITIAL_HRTIM_PERIOD*4/7);
 
-    LL_HRTIM_TIM_SetCompare4(HRTIM1, LL_HRTIM_TIMER_A, 100);
-    LL_HRTIM_TIM_SetCompare3(HRTIM1, LL_HRTIM_TIMER_B, 100);
-    LL_HRTIM_TIM_SetCompare4(HRTIM1, LL_HRTIM_TIMER_C, 100);
-    LL_HRTIM_TIM_SetCompare3(HRTIM1, LL_HRTIM_TIMER_D, 100);
+    //神秘数字，控制ADC进行延迟采样以使采样时刻精确配合三角波中点
+    //需要实测得出
+    LL_HRTIM_TIM_SetCompare4(HRTIM1, LL_HRTIM_TIMER_A, 1453);
+    LL_HRTIM_TIM_SetCompare3(HRTIM1, LL_HRTIM_TIMER_B, 1453);
+    LL_HRTIM_TIM_SetCompare4(HRTIM1, LL_HRTIM_TIMER_C, 1453);
+    LL_HRTIM_TIM_SetCompare3(HRTIM1, LL_HRTIM_TIMER_D, 1453);
 
 	LL_HRTIM_TIM_CounterEnable(HRTIM1,  LL_HRTIM_TIMER_MASTER|
                                         LL_HRTIM_TIMER_A|
@@ -31,8 +33,8 @@ void Timer_Init(ui_t *ui){
 
 //重装载值96~65503
 //比较值0~65503
-RAMRO uint32_t g_Timer_Period;//周期值（未减去1）
-RAMRO uint32_t g_Timer_CompareMax;//比较器限幅值，由HRTIM的缺陷而产生
+RAMVAR uint32_t g_Timer_Period;//周期值（未减去1）
+RAMVAR uint32_t g_Timer_CompareMax;//比较器限幅值，由HRTIM的缺陷而产生
 
 int SwitchingFrequency = DEFAULT_FSW_KHZ;
 
@@ -54,26 +56,19 @@ void SetFrequency(ui_t *ui){
     g_Timer_CompareMax = g_Timer_Period - HRTIM_CMP_FLOOR_LIMIT;
 }
 
-//设置占空比，根据周期和输入的百分比值，带占空比限幅
-//更新：通过设置支持了0和100%占空比输出
-RAMFUNC void SetDuty_Inv(float Du, float Dv, float Dw){
-    uint32_t compare_u, compare_v, compare_w, compare_max = g_Timer_CompareMax;
+//设置Buck占空比，根据周期和输入的百分比值，带占空比限幅
+//使用TIMER_D，支持0和100%占空比输出
+RAMFUNC void SetDuty_Buck(float Dbuck){
+    uint32_t compare, compare_max = g_Timer_CompareMax;
     float Period = g_Timer_Period;
     
-    compare_u = (uint32_t)(Period* Du);
-    compare_v = (uint32_t)(Period* Dv);
-    compare_w = (uint32_t)(Period* Dw);
+    compare = (uint32_t)(Period* Dbuck);
     //由于HRTIM的缺陷，需要进行限幅
-    if(compare_u < HRTIM_CMP_FLOOR_LIMIT || Du < 0) compare_u = 0;
-    else if(compare_u > compare_max) compare_u = g_Timer_Period+ 1;
-    if(compare_v < HRTIM_CMP_FLOOR_LIMIT || Dv < 0) compare_v = 0;
-    else if(compare_v > compare_max) compare_v = g_Timer_Period+ 1;
-    if(compare_w < HRTIM_CMP_FLOOR_LIMIT || Dw < 0) compare_w = 0;
-    else if(compare_w > compare_max) compare_w = g_Timer_Period+ 1;
-    //更改比较值	
-    LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_D, compare_u);
-    LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_E, compare_v);
-    LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_F, compare_w);
+    if(compare < HRTIM_CMP_FLOOR_LIMIT || Dbuck < 0) compare = 0;
+    else if(compare > compare_max) compare = g_Timer_Period+ 1;
+    //更改比较值
+    LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_D, compare);
+    LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_2, compare>>4);
 }
 RAMFUNC void SetDuty_Rec(float Du, float Dv, float Dw){
     uint32_t compare_u, compare_v, compare_w, compare_max = g_Timer_CompareMax;
@@ -114,11 +109,9 @@ void SetDuty_SV(uint8_t Timer_Set,float offset,float Du,float Dv,float Dw){
 }
 
 
-//打开PWM
-inline void PWM_Start_Inv(void){
-    LL_HRTIM_EnableOutput(HRTIM1, LL_HRTIM_OUTPUT_TD1 | LL_HRTIM_OUTPUT_TD2 |
-                                  LL_HRTIM_OUTPUT_TE1 | LL_HRTIM_OUTPUT_TE2 |
-                                  LL_HRTIM_OUTPUT_TF1 | LL_HRTIM_OUTPUT_TF2);
+//打开Buck PWM（TIMER_D）
+inline void PWM_Start_Buck(void){
+    LL_HRTIM_EnableOutput(HRTIM1, LL_HRTIM_OUTPUT_TD1 | LL_HRTIM_OUTPUT_TD2);
 }
 inline void PWM_Start_Rec(void){
     LL_HRTIM_EnableOutput(HRTIM1, LL_HRTIM_OUTPUT_TA1 | LL_HRTIM_OUTPUT_TA2 |

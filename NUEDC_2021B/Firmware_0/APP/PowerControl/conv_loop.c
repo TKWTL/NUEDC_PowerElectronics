@@ -1,4 +1,6 @@
 #include "conv_loop.h"
+#include "conv_controller.h"
+#include "conv_adc.h"
 #include "conv_pwm.h"
 #include "algorithm_control.h"
 #include "algorithm_filtering.h"
@@ -13,12 +15,38 @@ float Uwv = 0;//WV线电压
 float UuN = 0;// U相电压
 float UvN = 0;// V相电压
 float gain = 0.0;//电压前馈系数
-float soft_k = 0;//软启动控制系数
-
-float thph_offset;//调制中点
 int dpwm_state = 0;//DPWM状态
 float pwm_cm = 0.0f;   // Inv/Rec 共用公共零序偏置
 float mod_inv = 0.0f;  // 逆变器调制度，可用于调试观察
+
+
+//Buck电压外环PID控制器
+RAMVAR ST_PID BUCK_V_PID;
+/*******************************************************************
+函数名称：void BUCK_loop
+函数功能：Buck变换器电流内环控制
+备    注：电流内环单独调试用，外层电压PI后续添加
+********************************************************************/
+#define BUCK_I_KP     3.6f   //电流内环比例增益 V/A
+inline void BUCK_loop(float Vref, float I_lim)
+{
+    float Vout = ReadControlVar(&VN_t);
+    float I_avg = ReadControlVar(&IN_t);
+    
+    //电压外环PI → 电流参考（输出限幅 = 电流限幅）
+    float Iref = PID_Calc(&BUCK_V_PID, Vref, Vout, -INV_3_F32, I_lim+ INV_3_F32);
+    LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_1, Iref*1024);
+    //电流内环P
+    float Ierr = Iref - I_avg;
+    float delta_V = BUCK_I_KP * Ierr;
+    
+    //前馈：CCM Buck平均电压 + 环路修正
+    float Vsw = Vout + delta_V;
+    //标幺化到占空比
+    float D = Vsw * inv_VBUS;
+    
+    SetDuty_Buck(D);
+}
 
 //三相开环逆变，带软启动功能
 /*RAMFUNC void thph_open_loop(float U_ref, uint16_t index)
@@ -73,61 +101,12 @@ RAMFUNC static inline float CalcInvCommonMode(float a, float b, float c)
     pwm_cm = cm;
     return cm;
 }
-
 	
-/*******************************************************************
-三相逆变PR结构体，此处调参
-********************************************************************/	
-RAMVAR ST_PR PR_A={.fpE=0,.fpPreE=0,.fpPre_PreE=0,.fpU=0,.pre_fpU=0,.pre_pre_fpU=0,
-	.omiga_c=0.628f,.omiga_0=DEFAULT_AC_OMEGA,.fpDt=CTRL_DT,.Kp=0.1f,.Kr=500             
-};		
-RAMVAR ST_PR PR_B={.fpE=0,.fpPreE=0,.fpPre_PreE=0,.fpU=0,.pre_fpU=0,.pre_pre_fpU=0,
-	.omiga_c=0.628f,.omiga_0=DEFAULT_AC_OMEGA,.fpDt=CTRL_DT,.Kp=0.1f,.Kr=500               
-};	
-
-/*******************************************************************
-函数名称：void thph_loop
-函数功能：三相逆变控制
-备    注：自制
-********************************************************************/
-inline void thph_loop(float U_ref, float sin0, float sin240)
-{
-    U_ref *= soft_k;                                                            //软启动控制
-    if(soft_k < 1.0f) soft_k += SOFTSTART_SLOPE;
-    if(thph_offset < 2* MODULATION_MIDPOINT) thph_offset += MODULATION_SLOPE;   //*2的原因是SVPWM算法需要1左右的数作为标准偏置
-    
-    U_ref *= 1.4142136f/ 1.732051f;
-    //参考波形生成
-    PR_A.fpDes = U_ref* sin0;
-    PR_B.fpDes = U_ref* sin240;
-    
-    Uuv = ReadControlVar(&UV_INV_t);
-    Uwv = ReadControlVar(&WV_INV_t);
+/*    Uuv = ReadControlVar(&VAB_t);
+    Uwv = ReadControlVar(&VBC_t);
     UuN = (Uuv*2-Uwv)/ 3.0f;//线电压转相电压
     UvN = (Uwv+Uuv)/ -3.0f; 
-    gain = 1.0f/ ReadControlVar(&VBUS_t);//获取母线电压信息用于抗饱和和标幺化
-
-    PR_A.fpFB = UuN;
-    PR_A.fpLim = ReadControlVar(&VBUS_t)* ANTI_WINDUP_LIMIT;
-    PR_B.fpFB = UvN;
-    PR_B.fpLim = PR_A.fpLim;
-    
-    PR_Control(&PR_A);
-    PR_Control(&PR_B);
-    
-    //电流前馈与标幺化
-    OutputA = (PR_A.output_fpU+ ReadControlVar(&IU_INV_t))* gain;
-    OutputB = (PR_B.output_fpU+ ReadControlVar(&IV_INV_t))* gain;
-    OutputC = fminf(ANTI_WINDUP_LIMIT, fmaxf(-ANTI_WINDUP_LIMIT, -OutputA- OutputB));
-        
-    pwm_cm = CalcInvCommonMode(OutputA, OutputB, OutputC);
-
-    OutputA = 0.5f * OutputA + pwm_cm;
-    OutputB = 0.5f * OutputB + pwm_cm;
-    OutputC = 0.5f * OutputC + pwm_cm;
-    
-    SetDuty_Inv(OutputA, OutputB, OutputC);
-}
+    gain = 1.0f/ ReadControlVar(&VBUS_t);//获取母线电压信息用于抗饱和和标幺化*/
 
 /*******************************************************************
 三相整流PR结构体，此处调参
@@ -168,12 +147,10 @@ inline void tri_PFC_Loop(float I_ref, float sin0, float sin120, float sin240)
     UvN_P = (Uwv+ Uuv)/ -3.0f;
     UwN_P = (Uuv- 2* Uwv)/ -3.0f;
     
-    PFC_PR_A.fpFB = ReadControlVar(&IU_REC_t);
-    PFC_PR_A.fpLim = PR_A.fpLim;
-    PFC_PR_B.fpFB = ReadControlVar(&IV_REC_t);
-    PFC_PR_B.fpLim = PR_A.fpLim;
-    PFC_PR_C.fpFB = ReadControlVar(&IW_REC_t);
-    PFC_PR_C.fpLim = PR_A.fpLim;
+    PFC_PR_A.fpFB = ReadControlVar(&VZS_t);
+    PFC_PR_A.fpLim = ReadControlVar(&VBUS_t)* ANTI_WINDUP_LIMIT;
+    PFC_PR_C.fpFB = ReadControlVar(&VN_t);
+    PFC_PR_C.fpLim = PFC_PR_A.fpLim;
     
     PR_Control(&PFC_PR_A);
     PR_Control(&PFC_PR_B);

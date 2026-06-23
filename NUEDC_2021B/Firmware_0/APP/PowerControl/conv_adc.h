@@ -15,22 +15,21 @@ typedef struct {
     float result;
 }PowerControlVar_t;
 
-#define ADC_VREF    3.3f
-
 extern volatile uint16_t ADC1_Buffer[];
 extern volatile uint16_t ADC2_Buffer[];
 extern volatile uint16_t ADC3_Buffer[];
 extern volatile uint16_t ADC4_Buffer[];
 
 extern PowerControlVar_t  
-    VBUS_t,  //母线电压，单位V
-    IV_INV_t,//逆变器U相输出电流，单位A，半桥->电感为正
-    IU_INV_t,//逆变器V相输出电流，单位A，半桥->电感为正
-    UV_INV_t,//逆变器U相电压-V相电压，单位V
-    WV_INV_t,//逆变器W相电压-V相电压，单位V
-    IV_REC_t,//整流器U相电感电流，单位A，半桥->电感为正
-    IU_REC_t,//整流器V相电感电流，单位A，半桥->电感为正
-    IW_REC_t;//整流器W相电感电流，单位A，半桥->电感为正
+    VBUS_t, //母线电压，单位V
+    IA_t,   //整流器A相输入电流，单位A，输入->半桥为负
+    //IB_t  //整流器B相输入电流（省略不接）
+    IC_t,   //整流器C相输入电流，单位A，输入->半桥为负
+    VAB_t,  //整流器A相电压-B相电压，单位V
+    VBC_t,  //整流器B相电压-C相电压，单位V
+    VZS_t,  //整流器三相零序对地电压，单位V
+    IN_t,   //BUCK电感电流，单位A，半桥->输出为正
+    VN_t;   //BUCK输出电压，单位V
 
 //环路ISR一开始就必须执行的参数加载函数（将放入CCM RAM中加速运行）
 void LoadControlVar();
