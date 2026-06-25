@@ -34,7 +34,7 @@ inline void BUCK_loop(float Vref, float I_lim)
     float I_avg = ReadControlVar(&IN_t);
     
     //电压外环PI → 电流参考（输出限幅 = 电流限幅）
-    float Iref = PID_Calc(&BUCK_V_PID, Vref, Vout, -INV_3_F32, I_lim+ INV_3_F32);
+    float Iref = PID_Calc(&BUCK_V_PID, Vref, Vout, -INV_3_F32, I_lim+ INV_5_F32);
     LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_1, Iref*1024);
     //电流内环P
     float Ierr = Iref - I_avg;

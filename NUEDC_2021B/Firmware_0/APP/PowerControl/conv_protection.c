@@ -20,60 +20,25 @@ inline void Protection(void){
 }
 
 /*******************************************************************************
- * HRTIM1 故障中断 (FLT1 ~ FLT6, SYSFLT)
- * 需要在 CubeMX 中使能 HRTIM1 全局 Fault 中断 (NVIC)
+ * FLT1 过流中断服务函数 — 由 stm32g4xx_it.c 中的 HRTIM1_FLT_IRQHandler 调用
+ * FLT1 硬件已自动封锁 TIMER_D 输出，软件处理状态切换与通知
  ******************************************************************************/
-void HRTIM1_FLT_IRQHandler(void)
-{    
-    /* ── 故障响应 ── */
-
-    /* ① 立即封锁 PWM 输出（HRTIM FLT 硬件已自动处理，软件再确保一次） */
+RAMFUNC void POWER_FLT_IRQHandler(void)
+{
+    //仅处理 FLT1
+    if (LL_HRTIM_IsActiveFlag_FLT1(HRTIM1) == 0U) return;
+    
+    LL_HRTIM_ClearFlag_FLT1(HRTIM1);
+    
+    //软件再确保一次 PWM 关闭
     PWM_Stop();
-
-    /* ② 更新状态机 */
-    if (g_conv_state == CONV_RUN || g_conv_state == CONV_STOP) {
+    
+    //状态机：仅在运行时跳故障，停机时不切换
+    if (g_conv_state == CONV_RUN) {
         g_conv_state = CONV_FAULT;
     }
     
-    /* 收集故障来源 */
-    uint32_t flt_flags = 0;
-
-    if (LL_HRTIM_IsActiveFlag_FLT1(HRTIM1) != 0U) {
-        flt_flags |= 1U << 0;
-        LL_HRTIM_ClearFlag_FLT1(HRTIM1);
-    }
-    if (LL_HRTIM_IsActiveFlag_FLT2(HRTIM1) != 0U) {
-        flt_flags |= 1U << 1;
-        LL_HRTIM_ClearFlag_FLT2(HRTIM1);
-    }
-    if (LL_HRTIM_IsActiveFlag_FLT3(HRTIM1) != 0U) {
-        flt_flags |= 1U << 2;
-        LL_HRTIM_ClearFlag_FLT3(HRTIM1);
-    }
-    if (LL_HRTIM_IsActiveFlag_FLT4(HRTIM1) != 0U) {
-        flt_flags |= 1U << 3;
-        LL_HRTIM_ClearFlag_FLT4(HRTIM1);
-    }
-    if (LL_HRTIM_IsActiveFlag_FLT5(HRTIM1) != 0U) {
-        flt_flags |= 1U << 4;
-        LL_HRTIM_ClearFlag_FLT5(HRTIM1);
-    }
-    if (LL_HRTIM_IsActiveFlag_FLT6(HRTIM1) != 0U) {
-        flt_flags |= 1U << 5;
-        LL_HRTIM_ClearFlag_FLT6(HRTIM1);
-    }
-    /* SYSFLT 单独处理 */
-    if (LL_HRTIM_IsActiveFlag_SYSFLT(HRTIM1) != 0U) {
-        flt_flags |= 1U << 31;
-        LL_HRTIM_ClearFlag_SYSFLT(HRTIM1);
-    }
-
-    if (flt_flags == 0U) return;       /* 没有实质性故障，直接返回 */
-
-
-
-    /* ③ 通过通知系统上报故障（只存指针，不做 RTOS API 调用） */
-    Notification_Send_FromISR("HRTIM Fault!");
+    Notification_Send_FromISR("Over Current!!");
 }
 
 /**********************硬件保护&保护参数设置区*********************************/

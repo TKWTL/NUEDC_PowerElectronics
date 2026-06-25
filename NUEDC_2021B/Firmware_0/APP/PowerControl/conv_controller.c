@@ -39,13 +39,12 @@ RAMVAR float inv_VBUS;
 /*******************************环路核心函数***********************************/
 //取采样值，环路计算，保护，周期性统计
 inline void MainLoop(void){
-    // 在这里，DMA 已经把所有 ADC 转换的数据传输到预先定义的内存缓冲区中
+    LL_DAC_ConvertData12RightAligned(DAC2, LL_DAC_CHANNEL_1, ADC1_Buffer[0]);
     LL_GPIO_SetOutputPin(TEST1_GPIO_Port, TEST1_Pin);//拉高IO用于测试执行时间
     
     PhaseACC += fcw;//相位累加
     
     CORDIC_Write(PhaseACC);
-    LL_DAC_ConvertData12RightAligned(DAC2, LL_DAC_CHANNEL_1, ADC1_Buffer[0]);
     
     LoadControlVar();//从ADC采样后的数组中取得控制用的采样量
     inv_VBUS = 1.0f / ReadControlVar(&VBUS_t);
@@ -107,7 +106,7 @@ inline void MainLoop(void){
         BUCK_loop(VO_Set, IO_Lim);
         //未来在此处添加整流环路函数，添加后删除该注释
         PWM_Start_Buck();
-        //PWM_Start_Rec();
+        PWM_Start_Rec();
     }
     else{
         //停止输出

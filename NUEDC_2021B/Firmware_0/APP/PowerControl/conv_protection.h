@@ -3,8 +3,7 @@
 
 #include "services.h"
 
-void Protection(void);
-
+void Protection(void);void POWER_FLT_IRQHandler(void);
 void Protection_Init1(ui_t *ui);//初始化保护参数计算
 void Protection_Init2(ui_t *ui);//初始化保护参数计算
 

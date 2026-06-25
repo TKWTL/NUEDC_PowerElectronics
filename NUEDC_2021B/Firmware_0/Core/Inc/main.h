@@ -90,7 +90,7 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define INITIAL_HRTIM_DEADTIME 200
+#define INITIAL_HRTIM_DEADTIME 100
 #define INITIAL_HRTIM_PERIOD 32000
 #define BT_EN_Pin LL_GPIO_PIN_4
 #define BT_EN_GPIO_Port GPIOE

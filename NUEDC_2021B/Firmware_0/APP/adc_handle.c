@@ -19,7 +19,7 @@ void ADC_Task(void *argument)
     PR_Init(&PFC_PR_A);
     PR_Init(&PFC_PR_C);
     //Buck电压外环PI初始化
-    PID_Init(&BUCK_V_PID, 1.0f, 40.0f, 0.0f, CTRL_DT, 0.1f);
+    PID_Init(&BUCK_V_PID, 0.5f, 64.0f, 0.0f, CTRL_DT, 0.1f);
     
     Timer_Init(&ui);
     
