@@ -35,3 +35,54 @@ float VarFilter(FilterVar_t *pFilter, float filter_input){
     
     return pFilter->display_value;
 }
+
+/*******************************************************************************
+ * 滑动窗口有效值
+ ******************************************************************************/
+void SlideRms_Init(SlideRms_t *p, float *buf, uint16_t len)
+{
+    p->buf    = buf;
+    p->len    = len;
+    p->ptr    = 0;
+    p->sum_sq = 0.0f;
+    p->rms    = 0.0f;
+}
+
+void SlideRms_Store(SlideRms_t *p, float val)
+{
+    //减去最旧值
+    p->sum_sq -= p->buf[p->ptr] * p->buf[p->ptr];
+    //写入新值
+    p->buf[p->ptr] = val;
+    //加上新值平方
+    p->sum_sq += val * val;
+    //指针前进
+    p->ptr++;
+    if(p->ptr >= p->len) p->ptr = 0;
+}
+
+void SlideRms_Update(SlideRms_t *p)
+{
+    p->rms = sqrtf(p->sum_sq * (1.0f / (float)p->len));
+}
+
+float SlideRms_ReadDelayed(const SlideRms_t *p, uint16_t delay)
+{
+    int16_t idx = (int16_t)p->ptr - 1 - (int16_t)delay;
+    while(idx < 0) idx += (int16_t)p->len;
+    return p->buf[idx];
+}
+
+//PF滞后延迟查表：pf_x100 = 100~80 → 对应延迟采样点数（@30kHz/50Hz）
+#define PF_TABLE_LEN    21
+static const uint8_t pf_lag_tab[PF_TABLE_LEN] = {
+     0, 14, 19, 23, 27, 30, 33, 36, 38, 41, 43,
+    45, 47, 49, 51, 53, 55, 57, 58, 60, 61
+};
+
+uint8_t pf_to_lag(uint8_t pf_x100)
+{
+    if(pf_x100 > 100) pf_x100 = 100;
+    if(pf_x100 < 80)  pf_x100 = 80;
+    return pf_lag_tab[100 - pf_x100];
+}

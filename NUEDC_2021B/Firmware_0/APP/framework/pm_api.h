@@ -9,6 +9,16 @@ extern "C" {
 
 #define PM_BLOCK_SW6306_LOAD    0x01U
 
+/* PM 功能总开关 — 可在外层定义此宏为 0 禁用全部电源管理 */
+#ifndef PM_FEATURE_ENABLE
+#define PM_FEATURE_ENABLE  1
+#endif
+
+/* UI 任务句柄变量名（唤醒后恢复用），外层可覆盖 */
+#ifndef PM_UI_TASK_HANDLE
+#define PM_UI_TASK_HANDLE  UIHandle
+#endif
+
 void pm_api_refresh_idle(void);
 void pm_api_force_sleep(void);
 void pm_api_set_sleep_timeout(int timeout_sec);  /* 秒 → 内部定时器重装载 */

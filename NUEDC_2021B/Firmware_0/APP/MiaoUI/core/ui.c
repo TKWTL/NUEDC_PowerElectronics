@@ -35,7 +35,9 @@
 #include "stdlib.h"
 #include "string.h"
 #include "math.h"
+#if PM_FEATURE_ENABLE
 #include "pm_api.h"
+#endif
 
 //禁用调试输出定义函数
 void disable_logging(char *s){
@@ -968,10 +970,13 @@ static void Process_UI_Run(ui_t *ui, UI_ACTION Action)
                             ui->oldItem = ui->nowItem->page.location->item.head;
                             ui->nowItem = ui->nowItem->page.location->parentPage->item.lastJumpItem;
                         }
+#if PM_FEATURE_ENABLE
                         else{
-                            /* 根菜单按 BACK → 触发休眠/关屏（由 pm_policy 决定深度） */
+                            /* 根菜单按 BACK → 触发休眠/关屏 */
                             pm_api_force_sleep();
+                            vTaskSuspend(NULL);   /* 自挂起，避免继续绘图 */
                         }
+#endif
                     }
                     else{ // 否则进入应用绘制状态
                         UI_Disapper(ui, 1);

@@ -3,8 +3,9 @@
 #include "pm_controller.h"
 #include "pm_device.h"
 
-extern osThreadId_t UIHandle;   /* app_freertos.c 中定义的 UI 任务句柄 */
-extern SemaphoreHandle_t mutex_gspi_Handle;   /* spi.c 中定义的 SPI 互斥锁 */
+#if PM_FEATURE_ENABLE
+extern osThreadId_t PM_UI_TASK_HANDLE;   /* 由 PM_UI_TASK_HANDLE 宏指定的 UI 任务句柄 */
+#endif
 
 static pm_controller_t s_pm_ctrl;
 static uint8_t s_pm_ready;
@@ -226,8 +227,9 @@ void powerdown_task(void *pvParameters)
             sleep_blocked = 0;
         }
 
-        /* 空闲超时：清除 UI 活跃标志，允许状态机离开 RUN */
-        if (s_pm_refresh_req == 0 && pm_sleep_timer_expired() != 0) {
+        /* 空闲超时：清除 UI 活跃标志，允许状态机离开 RUN（但禁用状态下不触发） */
+        if (s_pm_refresh_req == 0 && pm_sleep_timer_expired() != 0
+            && !pm_sleep_timer_is_disabled()) {
             pm_controller_mark_ui_active(&s_pm_ctrl, 0);
         }
 
@@ -238,19 +240,14 @@ void powerdown_task(void *pvParameters)
 
         state = pm_controller_step(&s_pm_ctrl);
 
-        /* 离开 RUN → 挂起 UI 任务（停止绘制，避免 SPI 冲突） */
-        if (prev_state == PM_STATE_RUN && state != PM_STATE_RUN) {
-            /* 先确保 SPI 事务完成，防止 OLED 状态机被打断导致显示错乱 */
-            xSemaphoreTake(mutex_gspi_Handle, portMAX_DELAY);
-            xSemaphoreGive(mutex_gspi_Handle);
-            vTaskSuspend(UIHandle);
-        }
-        /* 回到 RUN → 恢复 UI 任务，同时启动唤醒静默期 */
+#if PM_FEATURE_ENABLE
+        /* 回到 RUN → 恢复 UI 任务（由 UI 任务自行调用 vTaskSuspend(NULL) 挂起） */
         if (state == PM_STATE_RUN && prev_state != PM_STATE_RUN) {
             s_wk_btn = 2;                    /* ~100ms 按键静默 */
             pm_api_set_unstable_wake(1);     /* 标记唤醒不稳定期 */
-            vTaskResume(UIHandle);
+            vTaskResume(PM_UI_TASK_HANDLE);
         }
+#endif
         prev_state = state;
 
         switch (state) {

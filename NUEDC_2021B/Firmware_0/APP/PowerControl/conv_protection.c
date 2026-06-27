@@ -2,6 +2,7 @@
 
 *******************************************************************************/
 #include "conv_protection.h"
+#include "conv_adc.h"
 #include <math.h>
 #include <armdsp.h>
 
@@ -23,7 +24,7 @@ inline void Protection(void){
  * FLT1 过流中断服务函数 — 由 stm32g4xx_it.c 中的 HRTIM1_FLT_IRQHandler 调用
  * FLT1 硬件已自动封锁 TIMER_D 输出，软件处理状态切换与通知
  ******************************************************************************/
-RAMFUNC void POWER_FLT_IRQHandler(void)
+void BUCK_FLT_IRQHandler(void)
 {
     //仅处理 FLT1
     if (LL_HRTIM_IsActiveFlag_FLT1(HRTIM1) == 0U) return;
@@ -43,7 +44,7 @@ RAMFUNC void POWER_FLT_IRQHandler(void)
 
 /**********************硬件保护&保护参数设置区*********************************/
 //与设置项有关的可调参数变量
-int UpperLimit_VBUS = 55;
+int UpperLimit_VBUS = 50; //母线电压上限，单位V，超过该值会触发保护
 
 //初始化保护参数计算，这是给AWD实现的硬件保护提供的，需要转换成对应的无符号整数
 //会打断转换器运行
@@ -52,6 +53,10 @@ void Protection_Init1(ui_t *ui){
     uint8_t AD3START_STA = 0;
     
     if(g_conv_state == CONV_RUN) g_conv_state = CONV_STOP;                      //强制转换器停止运行
+    
+    //保存当前HRTIM ADC触发配置，避免后续硬编码出错
+    uint32_t trig_update = LL_HRTIM_GetADCTrigUpdate(HRTIM1, LL_HRTIM_ADCTRIG_1);
+    uint32_t trig_src     = LL_HRTIM_GetADCTrigSrc(HRTIM1, LL_HRTIM_ADCTRIG_1);
     
     //G4不允许在ADC转换过程中修改看门狗阈值
     //通过关闭触发的方式保证DMA搬运序列的正确性
@@ -63,19 +68,27 @@ void Protection_Init1(ui_t *ui){
         ADC3->CR |= ADC_CR_ADSTP;
         while (ADC3->CR & ADC_CR_ADSTP) {}
     }
-        
-    RegTemp = (uint16_t)((UpperLimit_VBUS- 1.0947f)* 4096/ (19.5077f* ADC_VREF));
-    MODIFY_REG(ADC3->TR1, ADC_TR1_HT1,
-               (RegTemp << ADC_TR1_HT1_Pos) & ADC_TR1_HT1);
     
-    //如果关闭了ADC记得重启
+    //利用VBUS_t当前校准系数反向计算：ADC_count = ((Vbus - zero) / slope) * (4096 / VREF)
+    RegTemp = (uint16_t)(((float)UpperLimit_VBUS - VBUS_t.zero) / VBUS_t.slope * (4096.0f / ADC_VREF));
+    
+    //通过HAL配置AWD1高阈值（保持其他配置不变）
+    ADC_AnalogWDGConfTypeDef AnalogWDGConfig = {
+        .WatchdogNumber = ADC_ANALOGWATCHDOG_1,
+        .WatchdogMode   = ADC_ANALOGWATCHDOG_SINGLE_REG,
+        .Channel        = ADC_CHANNEL_4,
+        .ITMode         = ENABLE,
+        .HighThreshold  = RegTemp,
+        .LowThreshold   = 0,
+        .FilteringConfig = ADC_AWD_FILTERING_NONE
+    };
+    HAL_ADC_AnalogWDGConfig(&hadc3, &AnalogWDGConfig);
+    
+    //如果关闭了ADC记得重启，并从保存的配置恢复触发
     if(AD3START_STA){
         ADC3->CR |= ADC_CR_ADSTART;
-        LL_HRTIM_ConfigADCTrig(HRTIM1, LL_HRTIM_ADCTRIG_1, LL_HRTIM_ADCTRIG_UPDATE_TIMER_F, LL_HRTIM_ADCTRIG_SRC13_TIMFRST);
+        LL_HRTIM_ConfigADCTrig(HRTIM1, LL_HRTIM_ADCTRIG_1, trig_update, trig_src);
     }
-    
-    //LL_HRTIM_ConfigADCTrig(HRTIM1, LL_HRTIM_ADCTRIG_3, LL_HRTIM_ADCTRIG_UPDATE_TIMER_A, LL_HRTIM_ADCTRIG_SRC13_NONE);
-    //LL_HRTIM_ConfigADCTrig(HRTIM1, LL_HRTIM_ADCTRIG_3, LL_HRTIM_ADCTRIG_UPDATE_TIMER_A, LL_HRTIM_ADCTRIG_SRC13_TIMARST);
 }
 
 //ADC看门狗回调函数，STM32G474的AWDT只支持单门限触发，用途十分有限

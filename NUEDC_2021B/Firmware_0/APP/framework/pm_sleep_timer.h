@@ -7,12 +7,16 @@
 extern "C" {
 #endif
 
+/* 用该值初始化/设置定时器可永久禁用超时 */
+#define PM_SLEEP_DISABLED   0xFFFFFFFFUL
+
 void pm_sleep_timer_init(uint32_t timeout_ms);
 void pm_sleep_timer_set(uint32_t timeout_ms);
 void pm_sleep_timer_refresh(void);
 void pm_sleep_timer_force_expire(void);
 uint32_t pm_sleep_timer_left_ms(void);
 uint8_t pm_sleep_timer_expired(void);
+uint8_t pm_sleep_timer_is_disabled(void);
 
 #ifdef __cplusplus
 }

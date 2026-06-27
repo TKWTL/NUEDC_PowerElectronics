@@ -22,14 +22,10 @@ RAMVAR float soft_k = 0;
 RAMVAR float thph_offset;
 extern ST_PR PFC_PR_A, PFC_PR_C;
 extern ST_PID BUCK_V_PID;
+extern float PF_Set;
 
 RAMVAR float sin0, sin240;
     
-float v2_instant;
-float buf[800] = {0};
-float v2_sum;
-float vrms_out;
-uint32_t p_buf = 0;
 extern volatile uint16_t ADC2_Buffer[];
 extern volatile uint16_t ADC3_Buffer[];
 extern volatile uint16_t ADC4_Buffer[];
@@ -48,6 +44,20 @@ inline void MainLoop(void){
     
     LoadControlVar();//从ADC采样后的数组中取得控制用的采样量
     inv_VBUS = 1.0f / ReadControlVar(&VBUS_t);
+    
+    //========== 连续相电压统计（始终运行，独立于CONV_RUN状态） ==========
+    Vab = ReadControlVar(&VAB_t);
+    Vbc = ReadControlVar(&VBC_t);
+    Va_calc = (Vab* 2 + Vbc)/ 3.0f;
+    Vb_calc = (-Vab + Vbc)/ 3.0f;
+    Vc_calc = (-Vab - 2* Vbc)/ 3.0f;
+    SlideRms_Store(&Va_rms_inst, Va_calc);
+    SlideRms_Store(&Vc_rms_inst, Vc_calc);
+    SlideRms_Update(&Va_rms_inst);
+    SlideRms_Update(&Vc_rms_inst);
+    Va_rms = Va_rms_inst.rms;
+    Vc_rms = Vc_rms_inst.rms;
+    
     if(g_conv_state == CONV_RUN){
         Protection();//保护函数
         
@@ -103,31 +113,28 @@ inline void MainLoop(void){
             SetDuty_Rec(Va, Vb, Vc);
         }
         
-        BUCK_loop(VO_Set, IO_Lim);
-        //未来在此处添加整流环路函数，添加后删除该注释
+        
+        BUCK_loop(VO_Set, IO_Lim);//BUCK变换器控制（电流内环P，与电压外环PI）
+        //DAC验证：sin240（C相参考）和线电压转相电压结果
+        LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_1, sin0* 2000+ 2048U);
+        
+        tri_PFC_Loop((uint8_t)(PF_Set * 100.0f));  //从仪表盘读取PF设定值
         PWM_Start_Buck();
         PWM_Start_Rec();
     }
     else{
         //停止输出
         PWM_Stop();
-        //清除PR状态
-        //PR_Clean(&PFC_PR_A);
-        //PR_Clean(&PFC_PR_C);
+        //清除积分器状态
+        PR_Clean(&PFC_PR_A);
+        PR_Clean(&PFC_PR_C);
+        PID_Reset(&BUCK_V_PID);
         //清除软启动状态
         soft_k = 0;
-        PID_Reset(&BUCK_V_PID);
+        //自适应零序注入的初始值
         thph_offset = ReadControlVar(&VZS_t) * inv_VBUS;
     }
 
-    /*v2_instant = ReadControlVar(&VAB_t)* ReadControlVar(&VAB_t);
-    v2_sum -= buf[p_buf];
-    v2_sum += v2_instant;
-    buf[p_buf] = v2_instant;
-    p_buf++;
-    if(p_buf >= 800) p_buf = 0;
-    vrms_out = sqrtf(v2_sum/ 800);*/
-    
     LL_GPIO_ResetOutputPin(TEST1_GPIO_Port, TEST1_Pin);//拉低IO用于测试执行时间
 }
 

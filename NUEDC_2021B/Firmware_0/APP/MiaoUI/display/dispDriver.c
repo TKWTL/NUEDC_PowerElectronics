@@ -30,7 +30,8 @@
 #include "images/image.h"//使用的图片资源
 #include "FreeRTOS.h"
 #include "semphr.h"
-//#include "cmsis_os2.h"
+
+extern SemaphoreHandle_t mutex_gspi_Handle;   //SPI互斥锁（由 app_freertos.c 创建）
 
 int Contrast = 0;//系统亮度
 
@@ -94,6 +95,17 @@ void Add_Disp_Items(ui_page_t *ParentPage){
  */
 void diapInit(void)
 {
+    u8g2_Setup_sh1106_128x64_noname_f(&u8g2, UI_DEFAULT_ROTATION,
+                                      u8x8_byte_4wire_hw_spi,
+                                      u8x8_gpio_and_delay);
+    
+    xSemaphoreTake(mutex_gspi_Handle, portMAX_DELAY);
+    u8g2_InitDisplay(&u8g2);
+    u8g2_SetPowerSave(&u8g2, 0);
+    u8g2_SetContrast(&u8g2, Contrast);
+    xSemaphoreGive(mutex_gspi_Handle);
+    
+    u8g2_ClearBuffer(&u8g2);
 }
 
 /**
@@ -103,7 +115,9 @@ void diapInit(void)
  */
 void Disp_SendBuffer(void)
 {   
+    xSemaphoreTake(mutex_gspi_Handle, portMAX_DELAY);
     u8g2_SendBuffer(&u8g2);
+    xSemaphoreGive(mutex_gspi_Handle);
 }
 
 /**
@@ -115,11 +129,15 @@ void Disp_SendBuffer(void)
  * 使用者需要根据具体的OLED显示器和u8g2配置来选择合适的对比度值。
  */
 void Disp_SetContrast(ui_t *ui){
+    xSemaphoreTake(mutex_gspi_Handle, portMAX_DELAY);
     u8g2_SetContrast(&u8g2, Contrast); //调用u8g2库函数设置对比度
+    xSemaphoreGive(mutex_gspi_Handle);
 }
 
 void Disp_SetContrast2(uint8_t contrast){
+    xSemaphoreTake(mutex_gspi_Handle, portMAX_DELAY);
     u8g2_SetContrast(&u8g2, contrast); //调用u8g2库函数设置对比度
+    xSemaphoreGive(mutex_gspi_Handle);
 }
 
 /**
@@ -133,7 +151,9 @@ void Disp_SetContrast2(uint8_t contrast){
  */
 void Disp_SetPowerSave(uint8_t is_enable)
 {
+    xSemaphoreTake(mutex_gspi_Handle, portMAX_DELAY);
     u8g2_SetPowerSave(&u8g2, is_enable); // 调用u8g2库的函数，设置OLED的电源节省模式状态
+    xSemaphoreGive(mutex_gspi_Handle);
 }
 /******************************I/O操作区结束***********************************/
 

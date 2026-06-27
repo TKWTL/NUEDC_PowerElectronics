@@ -1,6 +1,7 @@
 /*显示仪表盘*/
 #include "dashboard.h"
 #include "algorithm_filtering.h"
+#include "application.h"
 #include <stdio.h>
 
 
@@ -10,9 +11,9 @@ float IO_Lim = 2.5f;//输出电流限制
 float PF_Set = 1.0f;//输入功率因数
 
 SetVar_t SetVar[] = {
-    {&VO_Set,   4.0f, 48.0f,  8.0f,   NULL,   NULL},//设定输出电压
+    {&VO_Set,   1.0f, 48.0f,  8.0f,   NULL,   NULL},//设定输出电压
     {&IO_Lim,   0.5f, 4.0f,   0.0f,   NULL,   NULL},//设定输出电流
-    {&PF_Set,   0.01f,1.0f,   0.9f,   NULL,   NULL}//设定输出功率因数
+    {&PF_Set,   0.01f,1.0f,   0.8f,   NULL,   NULL}//设定输出功率因数
 };//{&(Name),   Step, Max,    Min,    MaxLim, MinLim}
 
 void VarInc(uint8_t index){
@@ -74,10 +75,10 @@ void DashBoard(ui_t *ui){
         Disp_DrawStr(value+ 1, 36, buf);
 
         //VArms
-        sprintf(buf, "VA:%.2fV", VarFilter(&VA_Filter, ReadControlVar(&VAB_t)));
+        sprintf(buf, "VA:%.2fV", VarFilter(&VA_Filter, Va_rms));
         Disp_DrawStr(75-value, 62, buf);
         //VCrms
-        sprintf(buf, "VC:%.2fV", VarFilter(&VC_Filter, ReadControlVar(&VBC_t)));
+        sprintf(buf, "VC:%.2fV", VarFilter(&VC_Filter, Vc_rms));
         Disp_DrawStr(value+ 7, 62, buf);
         
         

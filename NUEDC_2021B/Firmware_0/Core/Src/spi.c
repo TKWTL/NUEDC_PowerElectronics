@@ -147,13 +147,9 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* spiHandle)
 /* USER CODE BEGIN 1 */
 TaskHandle_t gspi_wait_task = NULL;   // 当前等待SPI完成的任务句柄
 
-extern SemaphoreHandle_t mutex_gspi_Handle;   //SPI互斥锁
-
-//屏幕发送函数
+//屏幕发送函数（互斥锁移至 dispDriver 层）
 void GSPI_Transmit(uint8_t* p_buf, uint16_t len){
     if (p_buf == NULL || len == 0) return;
-    
-    xSemaphoreTake(mutex_gspi_Handle, portMAX_DELAY);
     
     gspi_wait_task = xTaskGetCurrentTaskHandle();
     (void)ulTaskNotifyTake(pdTRUE, 0);
@@ -162,8 +158,6 @@ void GSPI_Transmit(uint8_t* p_buf, uint16_t len){
 
     (void)ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     gspi_wait_task = NULL;
-    
-    xSemaphoreGive(mutex_gspi_Handle);
 }
 
 //主机发送完成中断回调函数

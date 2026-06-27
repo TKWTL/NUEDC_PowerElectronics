@@ -63,7 +63,6 @@ RAMFUNC void SetDuty_Buck(float Dbuck){
     else if(compare > compare_max) compare = g_Timer_Period+ 1;
     //更改比较值
     LL_HRTIM_TIM_SetCompare1(HRTIM1, LL_HRTIM_TIMER_D, compare);
-    LL_DAC_ConvertData12RightAligned(DAC1, LL_DAC_CHANNEL_2, compare>>4);
 }
 RAMFUNC void SetDuty_Rec(float Du, float Dv, float Dw){
     uint32_t compare_u, compare_v, compare_w, compare_max = g_Timer_CompareMax;

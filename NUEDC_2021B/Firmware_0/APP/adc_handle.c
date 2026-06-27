@@ -4,8 +4,11 @@
 *******************************************************************************/
 #include "application.h"
 
-extern ST_PR PFC_PR_A, PFC_PR_C;
 extern ST_PID BUCK_V_PID;
+extern ST_PID PFC_V_PID;
+extern ST_PR PFC_PR_A, PFC_PR_C;
+extern SlideRms_t Va_rms_inst, Vc_rms_inst;
+extern float Va_buf[], Vc_buf[];
 
 //在调度器启动后才开始初始化开关电源相关步骤
 void ADC_Task(void *argument)
@@ -15,11 +18,17 @@ void ADC_Task(void *argument)
     
     ADC_Init();
     
+    //初始化滑动窗口有效值
+    SlideRms_Init(&Va_rms_inst, Va_buf, V_RMS_LEN);
+    SlideRms_Init(&Vc_rms_inst, Vc_buf, V_RMS_LEN);
+    
     //初始化PR差分方程系数，必须在环路开始前执行
     PR_Init(&PFC_PR_A);
     PR_Init(&PFC_PR_C);
     //Buck电压外环PI初始化
     PID_Init(&BUCK_V_PID, 0.5f, 64.0f, 0.0f, CTRL_DT, 0.1f);
+    //PFC母线电压外环PI初始化
+    PID_Init(&PFC_V_PID, 0.5f, 64.0f, 0.0f, CTRL_DT, 0.1f);
     
     Timer_Init(&ui);
     

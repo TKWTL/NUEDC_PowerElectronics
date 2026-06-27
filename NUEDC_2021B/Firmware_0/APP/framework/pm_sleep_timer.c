@@ -53,6 +53,11 @@ uint32_t pm_sleep_timer_left_ms(void)
     return (uint32_t)(left * portTICK_PERIOD_MS);
 }
 
+uint8_t pm_sleep_timer_is_disabled(void)
+{
+    return (s_timeout_ms == PM_SLEEP_DISABLED) ? 1 : 0;
+}
+
 uint8_t pm_sleep_timer_expired(void)
 {
     TickType_t now = xTaskGetTickCount();
